@@ -2,7 +2,7 @@
 #
 # (c) 2002, Arthur Corliss <corliss@digitalmages.com>,
 #
-# $Id: PlainConfig.pm,v 1.6 2002/10/04 21:27:44 corliss Exp corliss $
+# $Id: PlainConfig.pm,v 1.7 2002/10/08 19:04:59 corliss Exp corliss $
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -26,7 +26,7 @@ Parse::PlainConfig - Parser for plain-text configuration files
 
 =head1 MODULE VERSION
 
-$Id: PlainConfig.pm,v 1.6 2002/10/04 21:27:44 corliss Exp corliss $
+$Id: PlainConfig.pm,v 1.7 2002/10/08 19:04:59 corliss Exp corliss $
 
 =head1 SYNOPSIS
 
@@ -80,7 +80,7 @@ use Text::ParseWords;
 use Carp;
 use Fcntl qw(:flock);
 
-($VERSION) = (q$Revision: 1.6 $ =~ /(\d+(?:\.(\d+))+)/);
+($VERSION) = (q$Revision: 1.7 $ =~ /(\d+(?:\.(\d+))+)/);
 
 #####################################################################
 #
@@ -658,6 +658,8 @@ sub _parse {
   
   # Clear the configuration if PURGE is true
   %$conf = () if $self->{PURGE};
+
+  $comment = '';
 
   while (defined ($line = shift @lines)) {
 
