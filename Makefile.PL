@@ -5,6 +5,6 @@ WriteMakefile(
 	'AUTHOR' => 'Arthur Corliss <corliss@digitalmages.com>',
 	'ABSTRACT' => 
 	'Parser/Generator of human-readable conf files',
-    'VERSION' => '1.1',
+    'VERSION' => '1.2',
 );
 

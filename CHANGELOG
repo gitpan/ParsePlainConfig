@@ -1,18 +1,29 @@
 
 RCS file: RCS/PlainConfig.pm,v
 Working file: PlainConfig.pm
-head: 1.1
+head: 1.2
 branch:
 locks: strict
-	corliss: 1.1
 access list:
 symbolic names:
 keyword substitution: kv
-total revisions: 1;	selected revisions: 1
+total revisions: 2;	selected revisions: 2
 description:
 Plain RC conf file parser/generator
 ----------------------------
-revision 1.1	locked by: corliss;
+revision 1.2
+date: 2002/01/31 11:00:05;  author: corliss;  state: Exp;  lines: +246 -12
+--Added capability to specify delimiter to use
+--Added write capability for generating conf files
+--Added key order retrieval/set capabilities
+--Expanded documentation of existing topics
+--Added security section
+--Constructor now allows the file and/or delimiter to be set and loaded
+  automatically
+--Added error method to retrieve error text messages
+--Now stripping trailing and leading whitespace for both keys and values
+----------------------------
+revision 1.1
 date: 2002/01/18 07:08:28;  author: corliss;  state: Exp;
 Initial revision
 =============================================================================

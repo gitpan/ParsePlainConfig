@@ -2,7 +2,7 @@
 #
 # (c) 2002, Arthur Corliss <corliss@digitalmages.com>,
 #
-# $Id: PlainConfig.pm,v 1.1 2002/01/18 07:08:28 corliss Exp corliss $
+# $Id: PlainConfig.pm,v 1.2 2002/01/31 11:00:05 corliss Exp $
 #
 #    This program is free software; you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -26,20 +26,27 @@ Parse::PlainConfig - Parser for plain-text configuration files
 
 =head1 MODULE VERSION
 
-$Id: PlainConfig.pm,v 1.1 2002/01/18 07:08:28 corliss Exp corliss $
+$Id: PlainConfig.pm,v 1.2 2002/01/31 11:00:05 corliss Exp $
 
 =head1 SYNOPSIS
 
 	use Parse::PlainConfig;
 
 	$conf = new Parse::PlainConfig;
+	$conf = Parse::PlainConfig->new('DELIM' => '=', 'FILE' => '.myrc');
+
+	$conf->delim('=');
 
 	$rv = $conf->read('myconf.conf');
 	$rv = $conf->read;
+	$conf->write('.myrc', 2);
 
 	$conf->set(KEY1 => 'foo', KEY2 => 'bar');
 	$field = $conf->get('KEY1');
 	($field1, $field2) = $conf->get(qw(KEY1 KEY2));
+
+	@order = $conf->order;
+	$conf->order(@new_order);
 
 	$hashref = $conf->get_ref;
 
@@ -71,7 +78,7 @@ use Text::ParseWords;
 use Carp;
 use Fcntl qw(:flock);
 
-($VERSION) = (q$Revision: 1.1 $ =~ /(\d+(?:\.(\d+))+)/);
+($VERSION) = (q$Revision: 1.2 $ =~ /(\d+(?:\.(\d+))+)/);
 
 #####################################################################
 #
@@ -107,32 +114,82 @@ B<cannot> place comments on the same lines as values.
 The above example also shows that escaping the end of a line (using '\' as the
 trailing character) allows you to assign values that may span multiple lines.
 
+If any key is present in the file without a corresponding value, it will be
+omitted from the hash.  In other words, if you have something like the
+following:
+
+	BLANK_KEY:
+
+it will not be stored in the configuration hash.
+
+All keys and values will have both leading and trailing whitespace stripped
+from them before being stored in the configuration hash.  Whitespace is
+allowed within both.
+
 B<Note:> If you wish to use a hash or list delimiter ('=>' & ',') as part of a
 scalar value, you B<must> enclose that value within quotation marks.  If you
 wish to preserve quotation marks as part of a value, you must escape the
 quotation characters.
+
+=head1 SECURITY
+
+B<WARNING:> This parser will attempt to open what ever you pass to it for a
+filename as is.  If this object is to be used in programs that run with
+permissions other than the calling user, make sure you sanitize any
+user-supplied filename strings before passing them to this object.
 
 =head1 METHODS
 
 =head2 new
 
 	$conf = new Parse::PlainConfig;
+	$conf = Parse::PlainConfig->new('DELIM' => '=', 'FILE' => '.myrc');
 
-The object constructor requires no arguments.
+The object constructor can be called with or without arguments.  The only
+recognised arguments are B<DELIM>, which specifies the key/value delimiter to
+use in the files, and B<FILE>, which specifies a file to read.  The latter
+argument will cause the object to automatically read and parse the file if
+possible.
 
 =cut
 
 sub new {
 	my $class = shift;
 	my $self = {};
+	my %init = (@_);
 
 	bless $self, $class;
 
 	$self->{CONF} = {};
+	$self->{ORDER} = [];
 	$self->{FILE} = undef;
+	$self->{DELIM} = ':';
 	$self->{ERROR} = '';
 
+	if (scalar keys %init) {
+		$self->delim($init{'DELIM'}) if exists $init{'DELIM'};
+		$self->read($init{'FILE'}) if exists $init{'FILE'};
+	}
+
 	return $self;
+}
+
+=head2 delim
+
+	$conf->delim('=');
+
+This method gets and/or sets the key/value delimiter to be used in the conf 
+files.  The default delimiter is ':'.  This can be multiple characters.
+
+=cut
+
+sub delim {
+	my $self = shift;
+	my $delim = shift || $self->{DELIM};
+
+	$self->{DELIM} = $delim;
+	
+	return $delim;
 }
 
 =head2 read
@@ -166,6 +223,8 @@ sub read {
 	my $file = shift || $self->{FILE};
 	my ($rv, $line, @lines);
 
+	$self->{ERROR} = '';
+
 	# $rv is one of the following values:
 	#
 	#	-3: filename never defined
@@ -181,8 +240,7 @@ sub read {
 	}
 
 	# Update the internal filename if a new one was passed
-	$self->{FILE} = $file if (! defined $self->{FILE} ||
-		$self->{FILE} ne $file);
+	$self->{FILE} = $file;
 
 	# If the file both exists and is readable
 	if (-e $file && -r _) {
@@ -199,8 +257,9 @@ sub read {
 			flock(RCFILE, LOCK_UN);
 			close(RCFILE);
 
-			# Empty the current config hash
+			# Empty the current config hash and key order
 			$self->{CONF} = {};
+			$self->{ORDER} = [];
 
 			# Parse the rc file's lines
 			$self->_parse(@lines);
@@ -229,9 +288,134 @@ sub read {
 
 =head2 write
 
-Not yet implemented.
+	$conf->write('.myrc', 2);
+
+This method writes the current configuration stored in memory to the specified
+file, either specified as the first argument, or as stored from an explicit or
+implicit B<read> call.
+
+The second argument specifies what kind of whitespace padding, if any, to use
+with the key/value delimiter.  The following values are recognised:
+
+	Value    Meaning
+	================================================
+	0        No padding (i.e., written as KEY:VALUE)
+	1        Left padding (i.e., written as KEY :VALUE)
+	2        Right padding (i.e., written as KEY: VALUE)
+	3        Full padding (i.e., written as KEY : VALUE)
+
+Both arguments are optional.
 
 =cut
+
+sub write {
+	my $self = shift;
+	my $file = shift || $self->{FILE};
+	my $padding = shift || 0;
+	my $conf = $self->{CONF};
+	my $order = $self->{ORDER};
+	my $d = $self->{DELIM};
+	my (%keys, $value, $out, $k, $v, $rv);
+
+	$self->{ERROR} = '';
+
+	# $rv is one of the following values:
+	#
+	#	-1: filename never defined
+	#	0: error occurred while writing file
+	#	1: write was successful
+
+	# Early exit if no valid filename was ever given
+	unless (defined $file && $file) {
+		$self->{ERROR} = "No filename was defined for writing.";
+		return -1;
+	}
+
+	$self->{FILE} = $file;
+
+	# Pad the delimiter as specified
+	if ($padding == 1) {
+		$d = " $d" if $padding;
+	} elsif ($padding == 2) {
+		$d = "$d " if $padding;
+	} elsif ($padding == 3) {
+		$d = " $d " if $padding;
+	}
+
+	# Compose the new output
+	foreach (@$order, sort keys %$conf) {
+
+		# Skip if we've already done this key
+		next if exists $keys{$_};
+
+		# Track what keys we've done
+		++$keys{$_};
+
+		if (exists $$conf{$_} && defined $$conf{$_}) {
+
+			$value = '';
+
+			# Create a series of lines if it's a hash
+			if (ref($$conf{$_}) eq "HASH") {
+				foreach $k (sort keys %{ $$conf{$_} }) {
+					$v = ${ $$conf{$_} }{$k};
+					
+					# Escape quotes and encapsulate if it has
+					# delimiters
+					$k =~ s/"/\\"/g;
+					$v =~ s/"/\\"/g;
+					$v = "\"$v\"" if $v =~ /(?:,|=>)/;
+
+					# Combine the pairs
+					$value .= ", \\\n\t" if length($value) > 0;
+					$value .= "$k => $v";
+				}
+
+			# Or if it's an array
+			} elsif (ref($$conf{$_}) eq "ARRAY") {
+				foreach $v (@{ $$conf{$_} }) {
+
+					# Escape quotes and encapsulate if it has
+					# delimiters
+					$v =~ s/"/\\"/g;
+					$v = "\"$v\"" if $v =~ /(?:,|=>)/;
+
+					# Combine the items
+					$value .= ", \\\n\t" if length($value) > 0;
+					$value .= $v;
+				}
+
+			# Or just use the scalar
+			} else {
+				$value = $$conf{$_};
+				$value =~ s/"/\\"/g;
+				$value = "\"$value\"" if $value =~ /(?:,|=>)/;
+			}
+
+			# Append the line(s) to the output
+			$out .= "$_$d$value\n";
+
+		}
+	}
+
+	# Attempt to open the file
+	if (open(RCFILE, "> $file")) {
+
+		# Write the file
+		flock(RCFILE, LOCK_EX);
+		print RCFILE $out;
+		flock(RCFILE, LOCK_UN);
+		close(RCFILE);
+		$rv = 1;
+
+	# Opening the file failed
+	} else {
+		$self->{ERROR} = "Error writing file: $!";
+		$rv = 0;
+	}
+
+	return $rv;
+}
 
 =head2 set
 
@@ -302,6 +486,35 @@ sub get {
 	return (scalar @fields > 1) ? @results : $results[0];
 }
 
+=head2 order
+
+	@order = $conf->order;
+	$conf->order(@new_order);
+
+This method returns the current order of the configuration keys as read from
+the file.   If called with a list as an argument, it will set the key order
+with that list.  This method is probably of limited use except when you wish
+to control the order in which keys are written in new conf files.
+
+Please note that if there are more keys than are present in this list, those
+extra keys will still be included in the new file, but will appear in
+alphabetically sorted order at the end, after all of the keys present in the
+list.
+
+=cut
+
+sub order {
+	my $self = shift;
+	my $order = $self->{ORDER};
+	my @new = (@_);
+
+	if (scalar @new) {
+		@$order = (@new);
+	} else {
+		return @$order;
+	}
+}
+
 =head2 get_ref
 
 	$hashref = $conf->get_ref;
@@ -318,6 +531,21 @@ sub get_ref {
 	return $self->{CONF};
 }
 
+=head2 error
+
+	warn $conf->error;
+
+This method returns a zero-length string if no errors were registered with the
+last operation, or a text message describing the error.
+
+=cut
+
+sub error {
+	my $self = shift;
+
+	return $self->{ERROR};
+}
+
 sub _parse {
 	# This takes a list of lines and parses them for config values,
 	# which it saves in the object's namespace.
@@ -326,6 +554,8 @@ sub _parse {
 
 	my $self = shift;
 	my $conf = $self->{CONF};
+	my $order = $self->{ORDER};
+	my $d = $self->{DELIM};
 	my @lines = @_;
 	my ($line, $key, $value, @items, $item, @tmp, %tmp);
 
@@ -335,7 +565,7 @@ sub _parse {
 		next if $line =~ /^\s*(?:#.*)$/;
 
 		# Make sure we've got a key and value pair
-		if ($line =~ /^\s*([\w\-\.\s]+):\s*(\S.*)$/) {
+		if ($line =~ /^\s*([\w\-\.\s]+)$d\s*(\S.*)$/) {
 
 			# Save the pair
 			($key, $value) = ($1, $2);
@@ -350,7 +580,7 @@ sub _parse {
 				if (defined ($line = shift @lines)) {
 
 					# Get the next part of the value
-					if ($line =~ /^\s*(\S.*)$/) {
+					if ($line =~ /^\s*(.*)$/) {
 						$value .= $1;
 
 					# or exit, since there was nothing to append
@@ -366,8 +596,12 @@ sub _parse {
 		}
 
 		# Strip leading and trailing whitespace
-		$value =~ s/^\s*//;
-		$value =~ s/\s*$//;
+		$value =~ s/^\s+//;
+		$value =~ s/\s+$//;
+		$key =~ s/\s+$//;
+
+		# Store the order the keys were extracted
+		push(@$order, $key);
 
 		# Attempt to determine the value type (scalar, array, hash)
 		@tmp = ();
