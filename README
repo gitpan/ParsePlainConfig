@@ -1,0 +1,27 @@
+Parse::PlainConfig
+==================
+
+Author: Arthur Corliss
+Date:  Jan. 17, 2002
+
+Description:
+------------
+
+This is a public release of a module that I've used and maintained internally
+for quite some time.  Because of that, I consider it a stable and mature
+module, ready for production use.
+
+Instructions:
+-------------
+
+Like all CPAN modules, just enter the following commands:
+
+	$ perl Makefile.PL
+	$ make
+	$ make test
+	$ make install
+
+If you wish to see sample code using the module, please examine test files in
+the t directory.  A sample rc file is there as well, which shows the
+robustness of the parser.
+

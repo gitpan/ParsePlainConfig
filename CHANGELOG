@@ -1,0 +1,18 @@
+
+RCS file: RCS/PlainConfig.pm,v
+Working file: PlainConfig.pm
+head: 1.1
+branch:
+locks: strict
+	corliss: 1.1
+access list:
+symbolic names:
+keyword substitution: kv
+total revisions: 1;	selected revisions: 1
+description:
+Plain RC conf file parser/generator
+----------------------------
+revision 1.1	locked by: corliss;
+date: 2002/01/18 07:08:28;  author: corliss;  state: Exp;
+Initial revision
+=============================================================================
