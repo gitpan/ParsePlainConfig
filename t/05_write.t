@@ -6,6 +6,7 @@ $|++;
 print "1..5\n";
 my $test = 1;
 my $rcfile = './t/testrc2';
+my $trcfile = './t/testrc9';
 
 # 1 load
 use Parse::PlainConfig;
@@ -20,12 +21,12 @@ $test++;
 
 # 3 write test
 $new->delim(':');
-$new->write('./t/testrc3') == 1 ? print "ok $test\n" : print "not ok $test\n";
+$new->write($trcfile) == 1 ? print "ok $test\n" : print "not ok $test\n";
 $test++;
 
 # 4 reload
 $new = undef;
-$new = Parse::PlainConfig->new('FILE' => './t/testrc3');
+$new = Parse::PlainConfig->new('FILE' => $trcfile);
 ref $new ? print "ok $test\n" : print "not ok $test\n";
 $test++;
 

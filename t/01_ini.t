@@ -5,7 +5,7 @@
 $|++;
 print "1..2\n";
 my $test = 1;
-my $rcfile = './t/testrc2';
+my $rcfile = './t/testrc';
 
 # 1 load
 use Parse::PlainConfig;

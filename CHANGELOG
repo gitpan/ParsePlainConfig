@@ -1,15 +1,30 @@
 
 RCS file: RCS/PlainConfig.pm,v
 Working file: PlainConfig.pm
-head: 1.2
+head: 1.4
 branch:
 locks: strict
+	corliss: 1.4
 access list:
 symbolic names:
 keyword substitution: kv
-total revisions: 2;	selected revisions: 2
+total revisions: 4;	selected revisions: 4
 description:
 Plain RC conf file parser/generator
+----------------------------
+revision 1.4	locked by: corliss;
+date: 2002/04/25 08:01:12;  author: corliss;  state: Exp;  lines: +16 -9
+--Added FORCE_SCALAR option
+----------------------------
+revision 1.3
+date: 2002/04/23 19:47:51;  author: corliss;  state: Exp;  lines: +481 -415
+--Expanded and improved the documentation
+--Added purge modes and manual purge method
+--Added directives method to retrieve all the keys from the conf hash
+--Fixed bug in which certain error codes weren't properly returned
+  to the caller
+--Fixed bug in which spurious warnings were generated when parsing a
+  file with the wrong delimiter.
 ----------------------------
 revision 1.2
 date: 2002/01/31 11:00:05;  author: corliss;  state: Exp;  lines: +246 -12
