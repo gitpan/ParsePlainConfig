@@ -1,18 +1,28 @@
 
 RCS file: RCS/PlainConfig.pm,v
 Working file: PlainConfig.pm
-head: 1.4
+head: 1.6
 branch:
 locks: strict
-	corliss: 1.4
+	corliss: 1.6
 access list:
 symbolic names:
 keyword substitution: kv
-total revisions: 4;	selected revisions: 4
+total revisions: 6;	selected revisions: 6
 description:
 Plain RC conf file parser/generator
 ----------------------------
-revision 1.4	locked by: corliss;
+revision 1.6	locked by: corliss;
+date: 2002/10/04 21:27:44;  author: corliss;  state: Exp;  lines: +50 -13
+--Fixed bug in test (root can still read/delete files with no r bit set)
+--Comments are now preserved when loading conf files
+--Describe method added to allow new comments for directives
+----------------------------
+revision 1.5
+date: 2002/04/29 16:39:37;  author: corliss;  state: Exp;  lines: +3 -3
+--Upped the rev to account for my bone-headed packaging. . .
+----------------------------
+revision 1.4
 date: 2002/04/25 08:01:12;  author: corliss;  state: Exp;  lines: +16 -9
 --Added FORCE_SCALAR option
 ----------------------------

@@ -2,7 +2,7 @@
 #
 # (c) 2002, Arthur Corliss <corliss@digitalmages.com>,
 #
-# $Id: PlainConfig.pm,v 1.5 2002/04/29 16:39:37 corliss Exp corliss $
+# $Id: PlainConfig.pm,v 1.6 2002/10/04 21:27:44 corliss Exp corliss $
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -26,7 +26,7 @@ Parse::PlainConfig - Parser for plain-text configuration files
 
 =head1 MODULE VERSION
 
-$Id: PlainConfig.pm,v 1.5 2002/04/29 16:39:37 corliss Exp corliss $
+$Id: PlainConfig.pm,v 1.6 2002/10/04 21:27:44 corliss Exp corliss $
 
 =head1 SYNOPSIS
 
@@ -46,6 +46,7 @@ $Id: PlainConfig.pm,v 1.5 2002/04/29 16:39:37 corliss Exp corliss $
 
   @directives = $conf->directives;
   $conf->set(KEY1 => 'foo', KEY2 => 'bar');
+  $conf->describe(KEY1 => '# This is foo', KEY2 => '# This is bar');
   $field = $conf->get('KEY1');
   ($field1, $field2) = $conf->get(qw(KEY1 KEY2));
 
@@ -63,9 +64,6 @@ Nothing outside of the core Perl modules.
 Parse::PerlConfig provides OO objects which can parse and generate
 human-readable configuration files.
 
-B<NOTE:> The write method is not yet implemented, but will be available
-with the next revision.
-
 =cut
 
 #####################################################################
@@ -82,7 +80,7 @@ use Text::ParseWords;
 use Carp;
 use Fcntl qw(:flock);
 
-($VERSION) = (q$Revision: 1.5 $ =~ /(\d+(?:\.(\d+))+)/);
+($VERSION) = (q$Revision: 1.6 $ =~ /(\d+(?:\.(\d+))+)/);
 
 #####################################################################
 #
@@ -161,7 +159,7 @@ user-supplied filename strings before passing them to this object.
 The object constructor can be called with or without arguments.  The only
 recognised arguments are B<DELIM>, which specifies the directive/value 
 delimiter to use in the files, B<FILE>, which specifies a file to read, 
-B<PURGE>, which sets the mode of the auto-purge feature, and B<FORCE_SCALAR,
+B<PURGE>, which sets the mode of the auto-purge feature, and B<FORCE_SCALAR>,
 which forces the specified directives to be read and stored as scalars.  The 
 B<PURGE> argument will cause the object to automatically read and parse the 
 file if possible.
@@ -176,6 +174,7 @@ sub new {
   bless $self, $class;
 
   $self->{CONF} = {};
+  $self->{COMMENTS} = {};
   $self->{ORDER} = [];
   $self->{FILE} = undef;
   $self->{DELIM} = ':';
@@ -363,9 +362,10 @@ sub write {
   my $file = shift || $self->{FILE};
   my $padding = shift || 0;
   my $conf = $self->{CONF};
+  my $comments = $self->{COMMENTS};
   my $order = $self->{ORDER};
   my $d = $self->{DELIM};
-  my (%keys, $value, $out, $k, $v);
+  my (%keys, $comment, $value, $out, $k, $v);
 
   $self->{ERROR} = '';
 
@@ -403,6 +403,7 @@ sub write {
 
     if (exists $$conf{$_} && defined $$conf{$_}) {
 
+      $comment = exists $$comments{$_} ? $$comments{$_} : '';
       $value = '';
 
       # Create a series of lines if it's a hash
@@ -443,7 +444,7 @@ sub write {
       }
 
       # Append the line(s) to the output
-      $out .= "$_$d$value\n";
+      $out .= "$comment$_$d$value\n";
 
     }
   }
@@ -496,6 +497,32 @@ sub set {
   my %new = (@_);
 
   foreach (keys %new) { $$conf{$_} = $new{$_} };
+}
+
+=head2 describe
+
+  $conf->describe(KEY1 => '# This is foo', KEY2 => '# This is bar');
+
+The describe method takes any number of key/description pairs which will be
+used as comments preceding the directives in any newly written conf file.  If
+you do not precede each line with comment characters ('#') this method will
+insert them for you.  However, it will not split lines longer than the display
+into multiple lines.
+
+=cut
+
+sub describe {
+  my $self = shift;
+  my $comments = $self->{COMMENTS};
+  my %new = (@_);
+  my @lines;
+
+  foreach (keys %new) { 
+    @lines = split(/\n/, $new{$_});
+    foreach (@lines) { $_ =~ s/^/# / if $_ !~ /^\s*#/ };
+    $new{$_} = join("\n", @lines) . "\n";
+    $$comments{$_} = $new{$_};
+  }
 }
 
 =head2 get
@@ -619,11 +646,12 @@ sub _parse {
 
   my $self = shift;
   my $conf = $self->{CONF};
+  my $comments = $self->{COMMENTS};
   my $order = $self->{ORDER};
   my $d = $self->{DELIM};
   my @fscalar = @{ $self->{FORCE_SCALAR} };
   my @lines = @_;
-  my ($line, $key, $value, @items, $item, @tmp, %tmp);
+  my ($comment, $line, $key, $value, @items, $item, @tmp, %tmp);
 
   # Clear the order array
   @$order = ();
@@ -634,7 +662,10 @@ sub _parse {
   while (defined ($line = shift @lines)) {
 
     # Skip blank or comment lines
-    next if $line =~ /^\s*(?:#.*)$/;
+    if ($line =~ /^\s*(?:#.*)$/) {
+      $comment .= "$line\n";
+      next;
+    }
 
     # Make sure we've got a key and value pair
     if ($line =~ /^\s*([\w\-\.\s]+)$d\s*(\S.*)$/) {
@@ -673,11 +704,15 @@ sub _parse {
   
       # Store the order the keys were extracted
       push(@$order, $key);
-  
+
+      # Store the associate comment and empty the scalar
+      $$comments{$key} = $comment if length($comment) > 0;
+      $comment = '';
+
       # Attempt to determine the value type (scalar, array, hash)
       @tmp = ();
       %tmp = ();
-  
+
       # It's a hash
       if (scalar (quotewords('\s*=>\s*', 0, $value)) > 1 && 
         scalar (grep /^$key$/, @fscalar) == 0) {
@@ -702,6 +737,8 @@ sub _parse {
           $$conf{$key} = (scalar @items > 1) ? $value : $items[0];
         }
       }
+    } else {
+      $comment .= "$line\n";
     }
   }
 }
