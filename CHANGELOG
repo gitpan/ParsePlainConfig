@@ -1,18 +1,22 @@
 
 RCS file: RCS/PlainConfig.pm,v
 Working file: PlainConfig.pm
-head: 1.6
+head: 1.7
 branch:
 locks: strict
-	corliss: 1.6
+	corliss: 1.7
 access list:
 symbolic names:
 keyword substitution: kv
-total revisions: 6;	selected revisions: 6
+total revisions: 7;	selected revisions: 7
 description:
 Plain RC conf file parser/generator
 ----------------------------
-revision 1.6	locked by: corliss;
+revision 1.7	locked by: corliss;
+date: 2002/10/08 19:04:59;  author: corliss;  state: Exp;  lines: +5 -3
+--Warnings cleanup
+----------------------------
+revision 1.6
 date: 2002/10/04 21:27:44;  author: corliss;  state: Exp;  lines: +50 -13
 --Fixed bug in test (root can still read/delete files with no r bit set)
 --Comments are now preserved when loading conf files
